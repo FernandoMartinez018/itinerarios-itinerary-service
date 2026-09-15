@@ -23,10 +23,10 @@ Requiere PostgreSQL y `itinerarios-airport-service` corriendo.
 
 ```bash
 export DB_HOST=localhost
-export DB_PORT=5432
+export DB_PORT=5434
 export DB_NAME=itinerary_db
-export DB_USERNAME=postgres
-export DB_PASSWORD=pssAritp0rt/*$
+export DB_USERNAME=itinerary_user
+export DB_PASSWORD=changeme
 export AIRPORT_SERVICE_URL=http://localhost:8081
 
 mvn spring-boot:run

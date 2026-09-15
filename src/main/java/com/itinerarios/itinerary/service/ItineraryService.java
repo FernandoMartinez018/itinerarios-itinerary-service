@@ -4,6 +4,8 @@ import com.itinerarios.itinerary.client.AirportServiceClient;
 import com.itinerarios.itinerary.dto.ItineraryDto;
 import com.itinerarios.itinerary.dto.ItineraryRequest;
 import com.itinerarios.itinerary.entity.Itinerary;
+import com.itinerarios.itinerary.event.ItineraryCreatedEvent;
+import com.itinerarios.itinerary.event.ItineraryEventPublisher;
 import com.itinerarios.itinerary.exception.ItineraryNotFoundException;
 import com.itinerarios.itinerary.mapper.ItineraryMapper;
 import com.itinerarios.itinerary.repository.ItineraryRepository;
@@ -13,25 +15,28 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Flujo de creación (sección 24, tramo Nivel 1 -- sin RabbitMQ todavía,
- * eso se agrega en Fase 7/Nivel 2):
+ * Flujo de creación (sección 24, Nivel 2):
  *
  *   validate departure airport -> Airport Service
  *   validate arrival airport   -> Airport Service
  *   save -> PostgreSQL
+ *   publish ItineraryCreatedEvent -> RabbitMQ
  */
 @Service
 public class ItineraryService {
 
     private final ItineraryRepository itineraryRepository;
     private final AirportServiceClient airportServiceClient;
+    private final ItineraryEventPublisher eventPublisher;
     private final ItineraryMapper mapper;
 
     public ItineraryService(ItineraryRepository itineraryRepository,
                              AirportServiceClient airportServiceClient,
+                             ItineraryEventPublisher eventPublisher,
                              ItineraryMapper mapper) {
         this.itineraryRepository = itineraryRepository;
         this.airportServiceClient = airportServiceClient;
+        this.eventPublisher = eventPublisher;
         this.mapper = mapper;
     }
 
@@ -63,7 +68,9 @@ public class ItineraryService {
 
         Itinerary saved = itineraryRepository.save(itinerary);
 
-        // TODO (Fase 7 / Nivel 2): publicar ItineraryCreatedEvent en RabbitMQ aquí.
+        // Publicación best-effort tras el save (ver limitación documentada en
+        // ItineraryEventPublisher: esto no es transaccional con PostgreSQL).
+        eventPublisher.publish(ItineraryCreatedEvent.from(saved));
 
         return mapper.toDto(saved);
     }

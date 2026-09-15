@@ -5,6 +5,8 @@ import com.itinerarios.itinerary.client.AirportSummary;
 import com.itinerarios.itinerary.dto.ItineraryDto;
 import com.itinerarios.itinerary.dto.ItineraryRequest;
 import com.itinerarios.itinerary.entity.Itinerary;
+import com.itinerarios.itinerary.event.ItineraryCreatedEvent;
+import com.itinerarios.itinerary.event.ItineraryEventPublisher;
 import com.itinerarios.itinerary.exception.InvalidAirportException;
 import com.itinerarios.itinerary.exception.ItineraryNotFoundException;
 import com.itinerarios.itinerary.mapper.ItineraryMapper;
@@ -21,7 +23,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,6 +33,9 @@ class ItineraryServiceTest {
 
     @Mock
     private AirportServiceClient airportServiceClient;
+
+    @Mock
+    private ItineraryEventPublisher eventPublisher;
 
     private final ItineraryMapper mapper = new ItineraryMapper();
 
@@ -58,6 +62,17 @@ class ItineraryServiceTest {
     }
 
     @Test
+    void create_publicaItineraryCreatedEventTrasPersistir() {
+        when(airportServiceClient.validateAirport(anyString()))
+                .thenReturn(new AirportSummary(1L, "BOG", "El Dorado", true));
+        when(itineraryRepository.save(any(Itinerary.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        itineraryService.create(validRequest());
+
+        verify(eventPublisher, times(1)).publish(any(ItineraryCreatedEvent.class));
+    }
+
+    @Test
     void create_fallaCuandoAeropuertoDeSalidaNoExiste() {
         when(airportServiceClient.validateAirport("BOG")).thenThrow(new InvalidAirportException("BOG"));
 
@@ -65,6 +80,7 @@ class ItineraryServiceTest {
                 .isInstanceOf(InvalidAirportException.class);
 
         verify(itineraryRepository, never()).save(any());
+        verify(eventPublisher, never()).publish(any());
     }
 
     @Test

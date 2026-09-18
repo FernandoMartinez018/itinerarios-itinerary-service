@@ -51,8 +51,20 @@ mvn spring-boot:run
 | Airport Service no disponible | 503 |
 | `durationMinutes <= 0` u otros campos inválidos | 400 |
 
+## Resiliencia (Nivel 2, Fase 10)
+
+`AirportServiceClient.validateAirport()` está protegido con `@Retry` +
+`@CircuitBreaker` (Resilience4j), con la misma configuración de ventana/umbral
+que Airport Service (ver `application.yml`).
+
+Decisión importante: `InvalidAirportException` (HTTP 404, "el aeropuerto no
+existe") está en la lista de excepciones **ignoradas** tanto por Retry como por
+Circuit Breaker — un 404 es una respuesta de negocio válida, no una falla
+transitoria del servicio. Reintentarlo no cambiaría el resultado, y contarlo
+como "fallo" haría que crear itinerarios con códigos IATA inválidos abriera el
+circuito innecesariamente, bloqueando también las validaciones legítimas.
+
 ## Pendiente (Nivel 2+)
 
 - Publicar `ItineraryCreatedEvent` a RabbitMQ al crear un itinerario (Fase 7).
-- Retry / Backoff / Jitter / Circuit Breaker en `AirportServiceClient` (Fase 10).
 - Transactional Outbox (Fase 12, Nivel 3).

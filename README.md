@@ -64,7 +64,14 @@ transitoria del servicio. Reintentarlo no cambiaría el resultado, y contarlo
 como "fallo" haría que crear itinerarios con códigos IATA inválidos abriera el
 circuito innecesariamente, bloqueando también las validaciones legítimas.
 
-## Pendiente (Nivel 2+)
+## Observabilidad (Nivel 2, Fase 11)
 
-- Publicar `ItineraryCreatedEvent` a RabbitMQ al crear un itinerario (Fase 7).
-- Transactional Outbox (Fase 12, Nivel 3).
+Igual que Airport Service: agente Java de OpenTelemetry (auto-instrumentación, sin
+cambios de código) exportando trazas a Jaeger vía el `otel-collector`, y métricas
+Micrometer/Prometheus en `/actuator/prometheus`. Ver el README de
+`itinerarios-airport-service` para el detalle de por qué conviven el
+`correlationId` propio y el `trace_id` de OpenTelemetry sin unificarse.
+
+## Pendiente (Nivel 3)
+
+- Transactional Outbox (Fase 12).

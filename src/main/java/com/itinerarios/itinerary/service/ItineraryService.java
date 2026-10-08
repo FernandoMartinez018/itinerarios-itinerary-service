@@ -1,43 +1,52 @@
 package com.itinerarios.itinerary.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itinerarios.itinerary.client.AirportServiceClient;
 import com.itinerarios.itinerary.dto.ItineraryDto;
 import com.itinerarios.itinerary.dto.ItineraryRequest;
 import com.itinerarios.itinerary.entity.Itinerary;
+import com.itinerarios.itinerary.entity.OutboxEvent;
 import com.itinerarios.itinerary.event.ItineraryCreatedEvent;
-import com.itinerarios.itinerary.event.ItineraryEventPublisher;
 import com.itinerarios.itinerary.exception.ItineraryNotFoundException;
 import com.itinerarios.itinerary.mapper.ItineraryMapper;
 import com.itinerarios.itinerary.repository.ItineraryRepository;
+import com.itinerarios.itinerary.repository.OutboxEventRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 /**
- * Flujo de creación (sección 24, Nivel 2):
+ * Flujo de creacion (seccion 24, tramo Nivel 3 - Transactional Outbox,
+ * ADR-008): dentro de UNA sola transaccion de PostgreSQL se escriben tanto
+ * el itinerario como el evento pendiente de publicar. O ambas escrituras se
+ * confirman juntas, o ninguna - nunca queda un itinerario guardado con el
+ * evento perdido (el problema que Nivel 2 aceptaba como limitacion conocida
+ * en ItineraryEventPublisher, ahora resuelto).
  *
- *   validate departure airport -> Airport Service
- *   validate arrival airport   -> Airport Service
- *   save -> PostgreSQL
- *   publish ItineraryCreatedEvent -> RabbitMQ
+ * La publicacion real a RabbitMQ ocurre despues, de forma asincrona, en
+ * OutboxPublisher - un proceso separado que lee esta misma tabla.
  */
 @Service
 public class ItineraryService {
 
     private final ItineraryRepository itineraryRepository;
+    private final OutboxEventRepository outboxEventRepository;
     private final AirportServiceClient airportServiceClient;
-    private final ItineraryEventPublisher eventPublisher;
     private final ItineraryMapper mapper;
+    private final ObjectMapper objectMapper;
 
     public ItineraryService(ItineraryRepository itineraryRepository,
+                             OutboxEventRepository outboxEventRepository,
                              AirportServiceClient airportServiceClient,
-                             ItineraryEventPublisher eventPublisher,
-                             ItineraryMapper mapper) {
+                             ItineraryMapper mapper,
+                             ObjectMapper objectMapper) {
         this.itineraryRepository = itineraryRepository;
+        this.outboxEventRepository = outboxEventRepository;
         this.airportServiceClient = airportServiceClient;
-        this.eventPublisher = eventPublisher;
         this.mapper = mapper;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
@@ -68,9 +77,9 @@ public class ItineraryService {
 
         Itinerary saved = itineraryRepository.save(itinerary);
 
-        // Publicación best-effort tras el save (ver limitación documentada en
-        // ItineraryEventPublisher: esto no es transaccional con PostgreSQL).
-        eventPublisher.publish(ItineraryCreatedEvent.from(saved));
+        // Misma transaccion que el save de arriba: si esto falla, el save
+        // del itinerario tambien se revierte (rollback conjunto).
+        enqueueItineraryCreatedEvent(saved);
 
         return mapper.toDto(saved);
     }
@@ -99,6 +108,32 @@ public class ItineraryService {
             throw new ItineraryNotFoundException(id);
         }
         itineraryRepository.deleteById(id);
+    }
+
+    private void enqueueItineraryCreatedEvent(Itinerary itinerary) {
+        ItineraryCreatedEvent event = ItineraryCreatedEvent.from(itinerary);
+        String payloadJson = serialize(event);
+
+        OutboxEvent outboxEvent = OutboxEvent.pending(
+                "Itinerary",
+                String.valueOf(itinerary.getId()),
+                event.eventType(),
+                payloadJson
+        );
+
+        outboxEventRepository.save(outboxEvent);
+    }
+
+    private String serialize(ItineraryCreatedEvent event) {
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException ex) {
+            // Un evento que no se puede serializar es un bug de programacion
+            // (el record es fijo y conocido), no una falla transitoria de
+            // infraestructura - se propaga y revierte toda la transaccion
+            // en vez de guardar un itinerario con un evento corrupto.
+            throw new IllegalStateException("Failed to serialize ItineraryCreatedEvent", ex);
+        }
     }
 
     private void validateAirports(String departureAirportId, String arrivalAirportId) {

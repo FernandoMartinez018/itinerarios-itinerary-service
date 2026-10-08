@@ -72,6 +72,20 @@ Micrometer/Prometheus en `/actuator/prometheus`. Ver el README de
 `itinerarios-airport-service` para el detalle de por qué conviven el
 `correlationId` propio y el `trace_id` de OpenTelemetry sin unificarse.
 
-## Pendiente (Nivel 3)
+## Transactional Outbox (Nivel 3, Fase 12)
 
-- Transactional Outbox (Fase 12).
+`ItineraryService.create()` ya no publica a RabbitMQ directamente. En su lugar,
+escribe una fila en `outbox_events` (estado `PENDING`) en la **misma transacción**
+de PostgreSQL que el itinerario — ver `ADR-008` en `itinerarios-docs` para el
+detalle completo del Double Write Problem que esto resuelve.
+
+`OutboxPublisher` (`@Scheduled`, cada 2s por defecto, configurable vía
+`OUTBOX_POLL_INTERVAL_MS`) lee las filas pendientes/fallidas y las publica a
+RabbitMQ de forma asíncrona, marcándolas `PUBLISHED` o incrementando su
+`retry_count` (máximo 5 intentos) si vuelve a fallar.
+
+## Pendiente
+
+Ninguno para Nivel 3 "prioridad muy alta" (sección 108) en este servicio. Sigue
+CI/CD completo (Fase 13) y, según tiempo disponible, componentes adicionales de
+Nivel 3 (gRPC, mTLS, Kubernetes, Pact, etc.).

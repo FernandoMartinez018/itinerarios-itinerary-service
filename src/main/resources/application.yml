@@ -31,6 +31,10 @@ integrations:
     connect-timeout-ms: 2000
     read-timeout-ms: 3000
 
+outbox:
+  publisher:
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:2000}
+
 resilience4j:
   retry:
     instances:

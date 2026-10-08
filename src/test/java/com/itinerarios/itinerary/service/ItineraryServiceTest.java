@@ -1,18 +1,20 @@
 package com.itinerarios.itinerary.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itinerarios.itinerary.client.AirportServiceClient;
 import com.itinerarios.itinerary.client.AirportSummary;
 import com.itinerarios.itinerary.dto.ItineraryDto;
 import com.itinerarios.itinerary.dto.ItineraryRequest;
 import com.itinerarios.itinerary.entity.Itinerary;
-import com.itinerarios.itinerary.event.ItineraryCreatedEvent;
-import com.itinerarios.itinerary.event.ItineraryEventPublisher;
+import com.itinerarios.itinerary.entity.OutboxEvent;
 import com.itinerarios.itinerary.exception.InvalidAirportException;
 import com.itinerarios.itinerary.exception.ItineraryNotFoundException;
 import com.itinerarios.itinerary.mapper.ItineraryMapper;
 import com.itinerarios.itinerary.repository.ItineraryRepository;
+import com.itinerarios.itinerary.repository.OutboxEventRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -23,6 +25,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,12 +35,13 @@ class ItineraryServiceTest {
     private ItineraryRepository itineraryRepository;
 
     @Mock
-    private AirportServiceClient airportServiceClient;
+    private OutboxEventRepository outboxEventRepository;
 
     @Mock
-    private ItineraryEventPublisher eventPublisher;
+    private AirportServiceClient airportServiceClient;
 
     private final ItineraryMapper mapper = new ItineraryMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @InjectMocks
     private ItineraryService itineraryService;
@@ -62,14 +66,21 @@ class ItineraryServiceTest {
     }
 
     @Test
-    void create_publicaItineraryCreatedEventTrasPersistir() {
+    void create_escribeUnOutboxEventPendingEnLaMismaOperacion() {
         when(airportServiceClient.validateAirport(anyString()))
                 .thenReturn(new AirportSummary(1L, "BOG", "El Dorado", true));
         when(itineraryRepository.save(any(Itinerary.class))).thenAnswer(inv -> inv.getArgument(0));
 
         itineraryService.create(validRequest());
 
-        verify(eventPublisher, times(1)).publish(any(ItineraryCreatedEvent.class));
+        ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository, times(1)).save(captor.capture());
+
+        OutboxEvent saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(OutboxEvent.Status.PENDING);
+        assertThat(saved.getAggregateType()).isEqualTo("Itinerary");
+        assertThat(saved.getEventType()).isEqualTo("ItineraryCreatedEvent");
+        assertThat(saved.getPayload()).contains("BOG").contains("MDE");
     }
 
     @Test
@@ -80,7 +91,7 @@ class ItineraryServiceTest {
                 .isInstanceOf(InvalidAirportException.class);
 
         verify(itineraryRepository, never()).save(any());
-        verify(eventPublisher, never()).publish(any());
+        verify(outboxEventRepository, never()).save(any());
     }
 
     @Test

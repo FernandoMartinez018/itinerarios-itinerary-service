@@ -57,6 +57,9 @@ public class OutboxEvent {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    @Column(name = "next_attempt_at")
+    private OffsetDateTime nextAttemptAt;
+
     protected OutboxEvent() {
         // requerido por JPA
     }
@@ -84,10 +87,11 @@ public class OutboxEvent {
         this.errorMessage = null;
     }
 
-    public void markFailed(String errorMessage) {
+    public void markFailed(String errorMessage, OffsetDateTime nextAttemptAt) {
         this.status = Status.FAILED;
         this.retryCount = this.retryCount + 1;
         this.errorMessage = errorMessage;
+        this.nextAttemptAt = nextAttemptAt;
     }
 
     // ---- getters ----
@@ -130,5 +134,9 @@ public class OutboxEvent {
 
     public String getErrorMessage() {
         return errorMessage;
+    }
+
+    public OffsetDateTime getNextAttemptAt() {
+        return nextAttemptAt;
     }
 }

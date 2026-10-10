@@ -12,6 +12,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Limit;
+
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -30,7 +34,10 @@ import java.util.List;
 public class OutboxPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
-    private static final int MAX_RETRY_COUNT = 5;
+    // Backoff 2s, 4s, 8s... con tope de 5 min: 20 intentos cubren mas de 1 h de broker caido.
+    private static final int MAX_RETRY_COUNT = 20;
+    private static final Duration BASE_BACKOFF = Duration.ofSeconds(2);
+    private static final Duration MAX_BACKOFF = Duration.ofMinutes(5);
 
     private final OutboxEventRepository outboxEventRepository;
     private final RabbitTemplate rabbitTemplate;
@@ -46,8 +53,8 @@ public class OutboxPublisher {
 
     @Scheduled(fixedDelayString = "${outbox.publisher.poll-interval-ms:2000}")
     public void publishPendingEvents() {
-        List<OutboxEvent> pending = outboxEventRepository.findTop50ByStatusInOrderByCreatedAtAsc(
-                List.of(OutboxEvent.Status.PENDING, OutboxEvent.Status.FAILED));
+        List<OutboxEvent> pending = outboxEventRepository.findReadyToPublish(
+                List.of(OutboxEvent.Status.PENDING, OutboxEvent.Status.FAILED), OffsetDateTime.now(), Limit.of(50));
 
         for (OutboxEvent event : pending) {
             if (event.getRetryCount() >= MAX_RETRY_COUNT) {
@@ -58,6 +65,12 @@ public class OutboxPublisher {
             }
             publishOne(event);
         }
+    }
+
+    /** Espera antes del intento n+1 tras n fallos: 2s * 2^n, con tope MAX_BACKOFF. */
+    static Duration backoff(int failures) {
+        Duration delay = BASE_BACKOFF.multipliedBy(1L << Math.min(failures, 20));
+        return delay.compareTo(MAX_BACKOFF) > 0 ? MAX_BACKOFF : delay;
     }
 
     @Transactional
@@ -72,7 +85,7 @@ public class OutboxPublisher {
             event.markPublished();
             log.info("Outbox event {} published for itinerary {}", event.getId(), event.getAggregateId());
         } catch (AmqpException | tools.jackson.core.JacksonException ex) {
-            event.markFailed(ex.getMessage());
+            event.markFailed(ex.getMessage(), OffsetDateTime.now().plus(backoff(event.getRetryCount())));
             log.error("Failed to publish outbox event {} (attempt {}/{})",
                     event.getId(), event.getRetryCount() + 1, MAX_RETRY_COUNT, ex);
         }

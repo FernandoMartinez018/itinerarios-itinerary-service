@@ -51,7 +51,7 @@ class OutboxPublisherTest {
         OutboxPublisher publisher = new OutboxPublisher(outboxEventRepository, rabbitTemplate, objectMapper);
         OutboxEvent event = pendingEventFor(123L);
 
-        when(outboxEventRepository.findTop50ByStatusInOrderByCreatedAtAsc(anyList()))
+        when(outboxEventRepository.findReadyToPublish(anyList(), any(), any()))
                 .thenReturn(List.of(event));
 
         publisher.publishPendingEvents();
@@ -69,7 +69,7 @@ class OutboxPublisherTest {
         OutboxPublisher publisher = new OutboxPublisher(outboxEventRepository, rabbitTemplate, objectMapper);
         OutboxEvent event = pendingEventFor(456L);
 
-        when(outboxEventRepository.findTop50ByStatusInOrderByCreatedAtAsc(anyList()))
+        when(outboxEventRepository.findReadyToPublish(anyList(), any(), any()))
                 .thenReturn(List.of(event));
         doThrow(new AmqpException("broker caído") {})
                 .when(rabbitTemplate).convertAndSend(anyString(), anyString(), any(ItineraryCreatedEvent.class));
@@ -81,17 +81,25 @@ class OutboxPublisherTest {
         assertThat(captor.getValue().getStatus()).isEqualTo(OutboxEvent.Status.FAILED);
         assertThat(captor.getValue().getRetryCount()).isEqualTo(1);
         assertThat(captor.getValue().getErrorMessage()).isNotBlank();
+        assertThat(captor.getValue().getNextAttemptAt()).isAfter(OffsetDateTime.now());
+    }
+
+    @Test
+    void backoff_creceExponencialmenteConTope() {
+        assertThat(OutboxPublisher.backoff(1)).isEqualTo(java.time.Duration.ofSeconds(4));
+        assertThat(OutboxPublisher.backoff(3)).isEqualTo(java.time.Duration.ofSeconds(16));
+        assertThat(OutboxPublisher.backoff(19)).isEqualTo(java.time.Duration.ofMinutes(5));
     }
 
     @Test
     void publishPendingEvents_noReintentaEventosQueYaAgotaronElMaximoDeReintentos() {
         OutboxPublisher publisher = new OutboxPublisher(outboxEventRepository, rabbitTemplate, objectMapper);
         OutboxEvent exhausted = pendingEventFor(789L);
-        for (int i = 0; i < 5; i++) {
-            exhausted.markFailed("fallo simulado " + i);
+        for (int i = 0; i < 20; i++) {
+            exhausted.markFailed("fallo simulado " + i, OffsetDateTime.now());
         }
 
-        when(outboxEventRepository.findTop50ByStatusInOrderByCreatedAtAsc(anyList()))
+        when(outboxEventRepository.findReadyToPublish(anyList(), any(), any()))
                 .thenReturn(List.of(exhausted));
 
         publisher.publishPendingEvents();

@@ -1,6 +1,6 @@
 package com.itinerarios.itinerary.event;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.itinerarios.itinerary.entity.OutboxEvent;
 import com.itinerarios.itinerary.repository.OutboxEventRepository;
 import org.junit.jupiter.api.Test;
@@ -31,7 +31,7 @@ class OutboxPublisherTest {
     @Mock
     private RabbitTemplate rabbitTemplate;
 
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private OutboxEvent pendingEventFor(Long itineraryId) {
         ItineraryCreatedEvent payload = new ItineraryCreatedEvent(

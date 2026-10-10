@@ -1,6 +1,6 @@
 package com.itinerarios.itinerary.event;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.itinerarios.itinerary.config.RabbitMQConfig;
 import com.itinerarios.itinerary.entity.OutboxEvent;
 import com.itinerarios.itinerary.repository.OutboxEventRepository;
@@ -71,7 +71,7 @@ public class OutboxPublisher {
             );
             event.markPublished();
             log.info("Outbox event {} published for itinerary {}", event.getId(), event.getAggregateId());
-        } catch (AmqpException | com.fasterxml.jackson.core.JsonProcessingException ex) {
+        } catch (AmqpException | tools.jackson.core.JacksonException ex) {
             event.markFailed(ex.getMessage());
             log.error("Failed to publish outbox event {} (attempt {}/{})",
                     event.getId(), event.getRetryCount() + 1, MAX_RETRY_COUNT, ex);

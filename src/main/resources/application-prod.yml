@@ -1,0 +1,14 @@
+# Perfil prod (seccion 67): sin valores por defecto para secretos ni hosts.
+# Si falta una variable de entorno el servicio no arranca, en vez de usar credenciales locales.
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+integrations:
+  airport-service:
+    base-url: ${AIRPORT_SERVICE_URL}

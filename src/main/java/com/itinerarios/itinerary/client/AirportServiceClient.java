@@ -1,7 +1,9 @@
 package com.itinerarios.itinerary.client;
 
+import com.itinerarios.itinerary.exception.CircuitOpenException;
 import com.itinerarios.itinerary.exception.ExternalServiceException;
 import com.itinerarios.itinerary.exception.InvalidAirportException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import org.slf4j.Logger;
@@ -65,7 +67,12 @@ public class AirportServiceClient {
             // pero se relanza igual por defensividad.
             throw invalidAirportException;
         }
-        log.error("Circuit breaker '{}' activo: no se pudo validar el aeropuerto {}", RESILIENCE_INSTANCE, iataCode, throwable);
-        throw new ExternalServiceException("Airport Service no disponible (circuit breaker abierto)", throwable);
+        if (throwable instanceof CallNotPermittedException) {
+            log.warn("Circuit breaker '{}' abierto: no se intenta validar el aeropuerto {}", RESILIENCE_INSTANCE, iataCode);
+            throw new CircuitOpenException("Airport Service no disponible (circuit breaker abierto)", throwable);
+        }
+        // Fallo real (ya registrado en validateAirport): se relanza tal cual para que Retry decida.
+        throw throwable instanceof ExternalServiceException ese ? ese
+                : new ExternalServiceException("Airport Service unavailable", throwable);
     }
 }

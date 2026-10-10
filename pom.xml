@@ -21,14 +21,26 @@
 
     <properties>
         <java.version>21</java.version>
-        <springdoc.version>2.8.5</springdoc.version>
-        <resilience4j.version>2.2.0</resilience4j.version>
+        <springdoc.version>3.0.0</springdoc.version>
+        <resilience4j.version>2.4.0</resilience4j.version>
     </properties>
 
+
+    <!--
+        Ajustes Spring Boot 4 (ADR-015, auditoría 2026-10-09):
+        - spring-boot-starter-web -> spring-boot-starter-webmvc (nombre modular de Boot 4).
+        - flyway-core -> spring-boot-starter-flyway: en Boot 4 la autoconfiguración de
+          Flyway vive en su propio módulo; sin el starter las migraciones NO se ejecutan
+          y ddl-auto=validate falla al arrancar.
+        - spring-boot-starter-aop -> spring-boot-starter-aspectj (renombrado en Boot 4).
+        - springdoc 2.8.x (Boot 3) -> 3.0.x (Boot 4 / Spring Framework 7).
+        - spring-boot-starter-webmvc-test: MockMvc/@WebMvcTest quedaron en módulo propio.
+        Verificar con `mvn -B clean verify` (Maven Central no estaba accesible al editar).
+    -->
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -48,7 +60,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.resilience4j</groupId>
@@ -68,8 +80,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -85,6 +97,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

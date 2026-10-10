@@ -53,6 +53,8 @@ resilience4j:
           # resultado y violaría la regla de la sección 28 de no reintentar
           # indiscriminadamente.
           - com.itinerarios.itinerary.exception.InvalidAirportException
+          # Breaker abierto: fallar rapido, no reintentar (la llamada ni se intento).
+          - com.itinerarios.itinerary.exception.CircuitOpenException
   circuitbreaker:
     instances:
       airportService:

@@ -57,8 +57,8 @@ mvn spring-boot:run
 `@CircuitBreaker` (Resilience4j), con la misma configuración de ventana/umbral
 que Airport Service (ver `application.yml`).
 
-Decisión importante: `InvalidAirportException` (HTTP 404, "el aeropuerto no
-existe") está en la lista de excepciones **ignoradas** tanto por Retry como por
+Decisión importante: `InvalidAirportException` (Airport Service responde 404,
+"el aeropuerto no existe", e Itinerary Service lo traduce a HTTP 400) está en la lista de excepciones **ignoradas** tanto por Retry como por
 Circuit Breaker — un 404 es una respuesta de negocio válida, no una falla
 transitoria del servicio. Reintentarlo no cambiaría el resultado, y contarlo
 como "fallo" haría que crear itinerarios con códigos IATA inválidos abriera el

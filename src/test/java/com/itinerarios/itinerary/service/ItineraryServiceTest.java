@@ -1,6 +1,6 @@
 package com.itinerarios.itinerary.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.itinerarios.itinerary.client.AirportServiceClient;
 import com.itinerarios.itinerary.client.AirportSummary;
 import com.itinerarios.itinerary.dto.ItineraryDto;
@@ -12,10 +12,10 @@ import com.itinerarios.itinerary.exception.ItineraryNotFoundException;
 import com.itinerarios.itinerary.mapper.ItineraryMapper;
 import com.itinerarios.itinerary.repository.ItineraryRepository;
 import com.itinerarios.itinerary.repository.OutboxEventRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -41,10 +41,16 @@ class ItineraryServiceTest {
     private AirportServiceClient airportServiceClient;
 
     private final ItineraryMapper mapper = new ItineraryMapper();
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @InjectMocks
     private ItineraryService itineraryService;
+
+    // @InjectMocks no inyecta mapper ni ObjectMapper reales (no son @Mock): se construye a mano.
+    @BeforeEach
+    void setUp() {
+        itineraryService = new ItineraryService(itineraryRepository, outboxEventRepository,
+                airportServiceClient, mapper, objectMapper);
+    }
 
     private ItineraryRequest validRequest() {
         return new ItineraryRequest("Juan Perez", "BOG", "MDE", LocalDate.now().plusDays(5), 60);

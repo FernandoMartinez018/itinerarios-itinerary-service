@@ -1,7 +1,7 @@
 package com.itinerarios.itinerary.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.itinerarios.itinerary.client.AirportServiceClient;
 import com.itinerarios.itinerary.dto.ItineraryDto;
 import com.itinerarios.itinerary.dto.ItineraryRequest;
@@ -127,7 +127,7 @@ public class ItineraryService {
     private String serialize(ItineraryCreatedEvent event) {
         try {
             return objectMapper.writeValueAsString(event);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             // Un evento que no se puede serializar es un bug de programacion
             // (el record es fijo y conocido), no una falla transitoria de
             // infraestructura - se propaga y revierte toda la transaccion

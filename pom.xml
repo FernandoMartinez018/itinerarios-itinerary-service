@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Ver nota de versión en itinerarios-airport-service/pom.xml: Spring Boot 4.1.1
+         es la línea estable soportada actualmente (3.5.x llegó a EOL el 30/06/2026). -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.1</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.itinerarios</groupId>
+    <artifactId>itinerary-service</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>itinerary-service</name>
+    <description>Microservicio de itinerarios - Sistema de Itinerarios Personales</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <springdoc.version>3.0.0</springdoc.version>
+        <resilience4j.version>2.4.0</resilience4j.version>
+    </properties>
+
+
+    <!--
+        Ajustes Spring Boot 4 (ADR-015, auditoría 2026-10-09):
+        - spring-boot-starter-web -> spring-boot-starter-webmvc (nombre modular de Boot 4).
+        - flyway-core -> spring-boot-starter-flyway: en Boot 4 la autoconfiguración de
+          Flyway vive en su propio módulo; sin el starter las migraciones NO se ejecutan
+          y ddl-auto=validate falla al arrancar.
+        - spring-boot-starter-aop -> spring-boot-starter-aspectj (renombrado en Boot 4).
+        - springdoc 2.8.x (Boot 3) -> 3.0.x (Boot 4 / Spring Framework 7).
+        - spring-boot-starter-webmvc-test: MockMvc/@WebMvcTest quedaron en módulo propio.
+        Verificar con `mvn -B clean verify` (Maven Central no estaba accesible al editar).
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot4</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

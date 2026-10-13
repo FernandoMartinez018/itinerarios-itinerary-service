@@ -20,6 +20,23 @@ spring:
       supported: 1,2
       required: false
 
+  security:
+    oauth2:
+      # Seguridad S2S (paso 31): JWT de Keycloak. Se resuelve en el primer uso, no al arrancar.
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:8180/realms/itinerarios}
+      client:
+        registration:
+          itinerary-service:
+            client-id: itinerary-service
+            client-secret: ${OAUTH2_CLIENT_SECRET:}
+            authorization-grant-type: client_credentials
+            scope: airport.read
+        provider:
+          itinerary-service:
+            token-uri: ${OAUTH2_TOKEN_URI:http://localhost:8180/realms/itinerarios/protocol/openid-connect/token}
+
   jpa:
     hibernate:
       ddl-auto: validate

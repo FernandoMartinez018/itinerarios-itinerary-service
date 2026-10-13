@@ -1,8 +1,11 @@
 package com.itinerarios.itinerary.client;
 
+import com.itinerarios.itinerary.exception.AirportServiceSaturatedException;
 import com.itinerarios.itinerary.exception.CircuitOpenException;
 import com.itinerarios.itinerary.exception.ExternalServiceException;
 import com.itinerarios.itinerary.exception.InvalidAirportException;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
@@ -45,6 +48,7 @@ public class AirportServiceClient {
      */
     @Retry(name = RESILIENCE_INSTANCE)
     @CircuitBreaker(name = RESILIENCE_INSTANCE, fallbackMethod = "validateAirportFallback")
+    @Bulkhead(name = RESILIENCE_INSTANCE)
     public AirportSummary validateAirport(String iataCode) {
         try {
             return airportServiceRestClient.get()
@@ -66,6 +70,10 @@ public class AirportServiceClient {
             // en la lista de excepciones ignoradas por el Circuit Breaker,
             // pero se relanza igual por defensividad.
             throw invalidAirportException;
+        }
+        if (throwable instanceof BulkheadFullException) {
+            log.warn("Bulkhead '{}' lleno: se rechaza la validacion de {} sin llamar a Airport Service", RESILIENCE_INSTANCE, iataCode);
+            throw new AirportServiceSaturatedException("Airport Service saturado (bulkhead lleno), reintente en unos segundos", throwable);
         }
         if (throwable instanceof CallNotPermittedException) {
             log.warn("Circuit breaker '{}' abierto: no se intenta validar el aeropuerto {}", RESILIENCE_INSTANCE, iataCode);

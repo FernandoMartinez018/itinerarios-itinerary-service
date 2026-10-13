@@ -65,6 +65,8 @@ resilience4j:
           - com.itinerarios.itinerary.exception.InvalidAirportException
           # Breaker abierto: fallar rapido, no reintentar (la llamada ni se intento).
           - com.itinerarios.itinerary.exception.CircuitOpenException
+          # Bulkhead lleno: saturacion local; reintentar solo agrega carga.
+          - com.itinerarios.itinerary.exception.AirportServiceSaturatedException
   circuitbreaker:
     instances:
       airportService:
@@ -79,6 +81,16 @@ resilience4j:
           - com.itinerarios.itinerary.exception.ExternalServiceException
         ignore-exceptions:
           - com.itinerarios.itinerary.exception.InvalidAirportException
+          # Bulkhead lleno no es un fallo de Airport Service: no debe abrir el circuito.
+          - io.github.resilience4j.bulkhead.BulkheadFullException
+  bulkhead:
+    instances:
+      airportService:
+        # Bulkhead semaforo (paso 31, seccion 108): como mucho 10 validaciones concurrentes hacia
+        # Airport Service; si Airport se pone lento, el resto falla rapido (503) en vez de agotar
+        # los hilos de Tomcat y tumbar tambien GET/PUT/DELETE de itinerarios.
+        max-concurrent-calls: ${AIRPORT_BULKHEAD_MAX_CALLS:10}
+        max-wait-duration: ${AIRPORT_BULKHEAD_MAX_WAIT:100ms}
 
 management:
   endpoints:

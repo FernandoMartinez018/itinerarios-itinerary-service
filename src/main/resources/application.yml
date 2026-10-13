@@ -10,6 +10,16 @@ spring:
     username: ${DB_USERNAME:itinerary_user}
     password: ${DB_PASSWORD:changeme}
 
+  mvc:
+    # API versioning nativo de Spring Framework 7 (paso 31). Header en vez de ruta para no
+    # romper Gateway, frontend ni E2E: sin header se atiende la v1.
+    apiversion:
+      use:
+        header: API-Version
+      default: 1
+      supported: 1,2
+      required: false
+
   jpa:
     hibernate:
       ddl-auto: validate

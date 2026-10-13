@@ -5,6 +5,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.itinerarios.itinerary.client.AirportServiceClient;
 import com.itinerarios.itinerary.dto.ItineraryDto;
 import com.itinerarios.itinerary.dto.ItineraryRequest;
+import com.itinerarios.itinerary.dto.PageResponse;
 import com.itinerarios.itinerary.entity.Itinerary;
 import com.itinerarios.itinerary.entity.OutboxEvent;
 import com.itinerarios.itinerary.event.ItineraryCreatedEvent;
@@ -12,6 +13,9 @@ import com.itinerarios.itinerary.exception.ItineraryNotFoundException;
 import com.itinerarios.itinerary.mapper.ItineraryMapper;
 import com.itinerarios.itinerary.repository.ItineraryRepository;
 import com.itinerarios.itinerary.repository.OutboxEventRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +58,14 @@ public class ItineraryService {
         return itineraryRepository.findAll().stream()
                 .map(mapper::toDto)
                 .toList();
+    }
+
+    /** API v2: pagina ordenada por id para que el recorrido sea estable entre paginas. */
+    @Transactional(readOnly = true)
+    public PageResponse<ItineraryDto> findPage(int page, int size) {
+        Page<Itinerary> result = itineraryRepository.findAll(PageRequest.of(page, size, Sort.by("id")));
+        return new PageResponse<>(result.map(mapper::toDto).getContent(), result.getNumber(), result.getSize(),
+                result.getTotalElements(), result.getTotalPages());
     }
 
     @Transactional(readOnly = true)

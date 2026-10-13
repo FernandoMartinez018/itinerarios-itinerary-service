@@ -1,6 +1,7 @@
 package com.itinerarios.itinerary.controller;
 
 import com.itinerarios.itinerary.dto.ItineraryDto;
+import com.itinerarios.itinerary.dto.PageResponse;
 import com.itinerarios.itinerary.exception.ExternalServiceException;
 import com.itinerarios.itinerary.exception.InvalidAirportException;
 import com.itinerarios.itinerary.exception.ItineraryNotFoundException;
@@ -17,6 +18,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -133,5 +135,52 @@ class ItineraryControllerTest {
     void getById_noNumerico_devuelve400() throws Exception {
         mockMvc.perform(get("/api/itineraries/abc"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // ---- API versioning + paginacion (paso 31) ----
+
+    @Test
+    void getAll_sinHeaderDeVersion_atiendeV1ConArreglo() throws Exception {
+        when(itineraryService.findAll()).thenReturn(List.of(sample()));
+
+        mockMvc.perform(get("/api/itineraries"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+        verify(itineraryService, never()).findPage(anyInt(), anyInt());
+    }
+
+    @Test
+    void getAll_v2_devuelvePagina() throws Exception {
+        when(itineraryService.findPage(1, 5)).thenReturn(new PageResponse<>(List.of(sample()), 1, 5, 6, 2));
+
+        mockMvc.perform(get("/api/itineraries").header("API-Version", "2").param("page", "1").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.totalElements").value(6))
+                .andExpect(jsonPath("$.totalPages").value(2));
+    }
+
+    @Test
+    void getAll_v2_tamanioFueraDeRango_devuelve400() throws Exception {
+        mockMvc.perform(get("/api/itineraries").header("API-Version", "2").param("size", "101"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(itineraryService);
+    }
+
+    @Test
+    void versionNoSoportada_devuelve400() throws Exception {
+        mockMvc.perform(get("/api/itineraries").header("API-Version", "3"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("3")));
+    }
+
+    @Test
+    void endpointSinVersion_funcionaTambienEnV2() throws Exception {
+        when(itineraryService.create(any())).thenReturn(sample());
+
+        mockMvc.perform(post("/api/itineraries").header("API-Version", "2")
+                        .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+                .andExpect(status().isCreated());
     }
 }

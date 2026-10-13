@@ -30,8 +30,8 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
         http
-                // API stateless con bearer token y sin cookies de sesion: CSRF no aplica.
-                .csrf(csrf -> csrf.disable())
+                // CSRF queda activo: oauth2ResourceServer lo omite en peticiones con Bearer token (el
+                // caso normal S2S) y sigue protegiendo cualquier otra (defensa en profundidad, Sonar S4502).
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()

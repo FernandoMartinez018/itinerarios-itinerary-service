@@ -208,6 +208,16 @@ class ItineraryControllerTest {
     }
 
     @Test
+    void escrituraSinBearerNiTokenCsrf_laRechazaCsrf() throws Exception {
+        // CSRF sigue activo (Sonar S4502): sin Bearer (p. ej. un navegador con cookies) el CsrfFilter,
+        // que corre antes de la autenticacion, rechaza con 403 en vez del 401 por falta de token.
+        // (jwt() de spring-security-test exime de CSRF como una peticion Bearer real, por eso aqui no se usa.)
+        mockMvc.perform(post("/api/itineraries").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(itineraryService);
+    }
+
+    @Test
     void escribirConScopeDeLectura_devuelve403() throws Exception {
         mockMvc.perform(post("/api/itineraries").with(reader()).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
                 .andExpect(status().isForbidden());

@@ -55,7 +55,9 @@ public class GlobalExceptionHandler {
         // traen su codigo: no deben convertirse en 500 (seccion 65).
         if (ex instanceof org.springframework.web.ErrorResponse springError) {
             HttpStatus status = HttpStatus.valueOf(springError.getStatusCode().value());
-            return build(status, status.name(), status.getReasonPhrase(), request);
+            // El detail de Spring es seguro y util (p. ej. "Invalid API version: '3'."); no expone internos.
+            String detail = springError.getBody().getDetail();
+            return build(status, status.name(), detail != null ? detail : status.getReasonPhrase(), request);
         }
         log.error("Unhandled error on {}", request.getRequestURI(), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "Unexpected error", request);

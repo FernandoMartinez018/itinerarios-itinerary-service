@@ -10,6 +10,33 @@ spring:
     username: ${DB_USERNAME:itinerary_user}
     password: ${DB_PASSWORD:changeme}
 
+  mvc:
+    # API versioning nativo de Spring Framework 7 (paso 31). Header en vez de ruta para no
+    # romper Gateway, frontend ni E2E: sin header se atiende la v1.
+    apiversion:
+      use:
+        header: API-Version
+      default: 1
+      supported: 1,2
+      required: false
+
+  security:
+    oauth2:
+      # Seguridad S2S (paso 31): JWT de Keycloak. Se resuelve en el primer uso, no al arrancar.
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:8180/realms/itinerarios}
+      client:
+        registration:
+          itinerary-service:
+            client-id: itinerary-service
+            client-secret: ${OAUTH2_CLIENT_SECRET:}
+            authorization-grant-type: client_credentials
+            scope: airport.read
+        provider:
+          itinerary-service:
+            token-uri: ${OAUTH2_TOKEN_URI:http://localhost:8180/realms/itinerarios/protocol/openid-connect/token}
+
   jpa:
     hibernate:
       ddl-auto: validate
@@ -55,6 +82,8 @@ resilience4j:
           - com.itinerarios.itinerary.exception.InvalidAirportException
           # Breaker abierto: fallar rapido, no reintentar (la llamada ni se intento).
           - com.itinerarios.itinerary.exception.CircuitOpenException
+          # Bulkhead lleno: saturacion local; reintentar solo agrega carga.
+          - com.itinerarios.itinerary.exception.AirportServiceSaturatedException
   circuitbreaker:
     instances:
       airportService:
@@ -69,6 +98,16 @@ resilience4j:
           - com.itinerarios.itinerary.exception.ExternalServiceException
         ignore-exceptions:
           - com.itinerarios.itinerary.exception.InvalidAirportException
+          # Bulkhead lleno no es un fallo de Airport Service: no debe abrir el circuito.
+          - io.github.resilience4j.bulkhead.BulkheadFullException
+  bulkhead:
+    instances:
+      airportService:
+        # Bulkhead semaforo (paso 31, seccion 108): como mucho 10 validaciones concurrentes hacia
+        # Airport Service; si Airport se pone lento, el resto falla rapido (503) en vez de agotar
+        # los hilos de Tomcat y tumbar tambien GET/PUT/DELETE de itinerarios.
+        max-concurrent-calls: ${AIRPORT_BULKHEAD_MAX_CALLS:10}
+        max-wait-duration: ${AIRPORT_BULKHEAD_MAX_WAIT:100ms}
 
 management:
   endpoints:

@@ -2,10 +2,13 @@ package com.itinerarios.itinerary.controller;
 
 import com.itinerarios.itinerary.dto.ItineraryDto;
 import com.itinerarios.itinerary.dto.ItineraryRequest;
+import com.itinerarios.itinerary.dto.PageResponse;
 import com.itinerarios.itinerary.service.ItineraryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,10 +26,20 @@ public class ItineraryController {
         this.itineraryService = itineraryService;
     }
 
-    @GetMapping
-    @Operation(summary = "Lista todos los itinerarios")
+    // Versionado por header API-Version (spring.mvc.apiversion.*): sin header = v1, el contrato
+    // original que usan el frontend y los clientes existentes.
+    @GetMapping(version = "1")
+    @Operation(summary = "Lista todos los itinerarios (v1, arreglo completo)")
     public ResponseEntity<List<ItineraryDto>> findAll() {
         return ResponseEntity.ok(itineraryService.findAll());
+    }
+
+    @GetMapping(version = "2")
+    @Operation(summary = "Lista paginada de itinerarios (v2, header API-Version: 2)")
+    public ResponseEntity<PageResponse<ItineraryDto>> findPage(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return ResponseEntity.ok(itineraryService.findPage(page, size));
     }
 
     @GetMapping("/{id}")

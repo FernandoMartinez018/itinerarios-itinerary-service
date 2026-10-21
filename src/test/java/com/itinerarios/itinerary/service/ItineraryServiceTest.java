@@ -5,6 +5,7 @@ import com.itinerarios.itinerary.client.AirportServiceClient;
 import com.itinerarios.itinerary.client.AirportSummary;
 import com.itinerarios.itinerary.dto.ItineraryDto;
 import com.itinerarios.itinerary.dto.ItineraryRequest;
+import com.itinerarios.itinerary.dto.PageResponse;
 import com.itinerarios.itinerary.entity.Itinerary;
 import com.itinerarios.itinerary.entity.OutboxEvent;
 import com.itinerarios.itinerary.exception.InvalidAirportException;
@@ -19,7 +20,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -116,5 +122,20 @@ class ItineraryServiceTest {
                 .isInstanceOf(ItineraryNotFoundException.class);
 
         verify(itineraryRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void findPage_mapeaLaPaginaOrdenadaPorId() {
+        Itinerary itinerary = new Itinerary("Ana", "BOG", "MDE", LocalDate.now().plusDays(3), 45);
+        when(itineraryRepository.findAll(PageRequest.of(1, 2, Sort.by("id"))))
+                .thenReturn(new PageImpl<>(List.of(itinerary), PageRequest.of(1, 2, Sort.by("id")), 5));
+
+        PageResponse<ItineraryDto> page = itineraryService.findPage(1, 2);
+
+        assertThat(page.content()).extracting(ItineraryDto::userName).containsExactly("Ana");
+        assertThat(page.page()).isEqualTo(1);
+        assertThat(page.size()).isEqualTo(2);
+        assertThat(page.totalElements()).isEqualTo(5);
+        assertThat(page.totalPages()).isEqualTo(3);
     }
 }
